@@ -34,11 +34,9 @@ class pCloud2UDP(Node):
         
     def msg_as_byte_array(self, msg):
         header = struct.pack(
-            "IIQ",
+            "II",
             msg.header.stamp.sec,
-            msg.header.stamp.nanosec,
-            len(msg.header.frame_id)
-            ) + msg.header.frame_id.encode('utf-8')
+            msg.header.stamp.nanosec)
         
         metadata = struct.pack(
             "II??II",
