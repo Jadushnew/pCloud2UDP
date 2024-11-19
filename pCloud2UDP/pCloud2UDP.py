@@ -14,7 +14,7 @@ class pCloud2UDP(Node):
         super().__init__('pCloud2UDP')
         
         # Define UDP parameters here
-        self.declare_parameter('udp_target_ip', '255.255.255.255')
+        self.declare_parameter('udp_target_ip', '192.168.209.205')
         self.declare_parameter('udp_target_port', 60811)
         
         self.udp_target_ip = self.get_parameter('udp_target_ip').value
