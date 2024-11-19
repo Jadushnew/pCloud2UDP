@@ -6,6 +6,7 @@ import struct
 
 topic_name = '/unilidar/cloud'
 queue_size = 10
+DEBUG = False
 
 class pCloud2UDP(Node):
     
@@ -64,13 +65,15 @@ class pCloud2UDP(Node):
         return msg_converted
         
     def pCloud_callback(self, msg):
-        self.udp_socket.sendto(bytes(bytearray([3])), (self.udp_target_ip, self.udp_target_port))
-        self.get_logger().info('PointCloud2 message sent via UDP.')
-        #try:
-          #  self.udp_socket.sendto(self.msg_as_byte_array(msg), (self.udp_target_ip, self.udp_target_port))
-         #   self.get_logger().info('PointCloud2 message sent via UDP.')
-        #except Exception as e:
-       #     self.get_logger().error(f"Failed to send PointCloud2 data: {e}")
+        if DEBUG:
+            self.udp_socket.sendto(bytes(bytearray([3])), (self.udp_target_ip, self.udp_target_port))
+            self.get_logger().info('PointCloud2 message sent via UDP.')
+        else:
+            try:
+                self.udp_socket.sendto(self.msg_as_byte_array(msg), (self.udp_target_ip, self.udp_target_port))
+                self.get_logger().info('PointCloud2 message sent via UDP.')
+            except Exception as e:
+                self.get_logger().error(f"Failed to send PointCloud2 data: {e}")
     
         
 def main(args=None):
