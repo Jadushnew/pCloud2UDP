@@ -60,7 +60,8 @@ class pCloud2UDP(Node):
                 field.count
                 ) + field.name.encode('utf-8')
             
-        msg_converted = header + metadata + fields + msg.data
+        identifier = bytes(bytearray([255,255,255,255]))
+        msg_converted = identifier + header + metadata + fields + msg.data
         
         return msg_converted
         
