@@ -39,27 +39,15 @@ class pCloud2UDP(Node):
             msg.header.stamp.nanosec)
         
         metadata = struct.pack(
-            "II??II",
+            "IIII",
             msg.height,
             msg.width,
-            msg.is_bigendian,
-            msg.is_dense,
             msg.point_step,
             msg.row_step
             )
-        
-        fields = struct.pack("I", len(msg.fields))
-        for field in msg.fields:
-            fields += struct.pack(
-                "IIBI",
-                len(field.name),
-                field.offset,
-                field.datatype,
-                field.count
-                ) + field.name.encode('utf-8')
             
         identifier = bytes(bytearray([255,255,255,255]))
-        msg_converted = identifier + header + metadata + fields + msg.data
+        msg_converted = identifier + header + metadata + msg.data
         
         return msg_converted
         
