@@ -9,6 +9,7 @@ from ament_index_python.packages import get_package_share_directory
 package_name = 'pCloud2UDP'
 topic_name = '/unilidar/cloud'
 queue_size = 10
+package_size = 50_000 # bytes -> 50kb (max udp package size ~ 65 kb)
 DEBUG = False
 
 def load_config():
@@ -65,8 +66,14 @@ class pCloud2UDP(Node):
             self.udp_socket.sendto(bytes(bytearray([3])), (self.udp_target_ip, self.udp_target_port))
             self.get_logger().info('PointCloud2 message sent via UDP.')
         else:
+            # Default case
             try:
-                self.udp_socket.sendto(self.msg_as_byte_array(msg), (self.udp_target_ip, self.udp_target_port))
+                # Serialize PointCloud2
+                serialized_msg = self.msg_as_byte_array(msg)
+                
+                # Calculate length of message to determine if splitting is necessary
+                
+                self.udp_socket.sendto(serialized_msg, (self.udp_target_ip, self.udp_target_port))
                 self.get_logger().info('PointCloud2 message sent via UDP.')
             except Exception as e:
                 self.get_logger().error(f"Failed to send PointCloud2 data: {e}")
