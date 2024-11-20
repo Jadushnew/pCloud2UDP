@@ -3,19 +3,28 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 import socket
 import struct
+import json
+from ament_index_python.packages import get_package_share_directory
 
+package_name = 'pCloud2UDP'
 topic_name = '/unilidar/cloud'
 queue_size = 10
 DEBUG = False
 
+def load_config():
+    config_path = get_package_share_directory(package_name) + '/config/config.json'
+    with open(config_path, 'r') as file:
+        return json.load(file)
+
 class pCloud2UDP(Node):
     
     def __init__(self):
-        super().__init__('pCloud2UDP')
+        super().__init__(package_name)
+        config = load_config()
         
         # Define UDP parameters here
-        self.declare_parameter('udp_target_ip', '192.168.209.205')
-        self.declare_parameter('udp_target_port', 60811)
+        self.declare_parameter('udp_target_ip', config["ip"])
+        self.declare_parameter('udp_target_port', config["port"])
         
         self.udp_target_ip = self.get_parameter('udp_target_ip').value
         self.udp_target_port = self.get_parameter('udp_target_port').value
