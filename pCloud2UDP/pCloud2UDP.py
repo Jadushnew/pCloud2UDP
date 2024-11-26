@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 package_name = 'pCloud2UDP'
 topic_name = '/unilidar/cloud'
 queue_size = 10
-max_package_size = 50_000 # bytes -> 50kb (max udp package size ~ 65 kb)
+max_package_size = 60_000 # bytes -> 50kb (max udp package size ~ 65 kb)
 DEBUG = False
 
 def load_config():
@@ -44,10 +44,6 @@ class pCloud2UDP(Node):
         self.get_logger().info("Subscribed to /unilidar/cloud")
         
     def msg_as_byte_array(self, msg):
-        header = struct.pack(
-            "II",
-            msg.header.stamp.sec,
-            msg.header.stamp.nanosec)
         
         metadata = struct.pack(
             "IIII",
@@ -56,10 +52,13 @@ class pCloud2UDP(Node):
             msg.point_step,
             msg.row_step
             )
+        
+        # data contains not need data like intensity, ring, etc. We only need x,y, and z, so we only need the first 12 bytes
+        cut_data = msg.data[:12]
             
         identifier = bytes(bytearray([255,255,255,255]))
         end_identifier = bytes(bytearray([181,181,181,181]))
-        msg_converted = identifier + header + metadata + msg.data + end_identifier
+        msg_converted = identifier + metadata + cut_data + end_identifier
         
         return msg_converted
         
@@ -78,11 +77,19 @@ class pCloud2UDP(Node):
                 num_packages_to_send = math.ceil(len(serialized_msg) / max_package_size)
                 if num_packages_to_send > 1:
                     self.get_logger().info(f"Package larger than set package size. Splitting into {num_packages_to_send} Packages")
+                    self.get_logger().info(f"Message contains {msg.data}")
                 packages = [serialized_msg[i:i+max_package_size] for i in range(0, len(serialized_msg), max_package_size)]
                 if len(packages) > num_packages_to_send:
                     packages[-2] += packages[-1]
                     packages = packages[:-1]
                     
+                self.get_logger().info("")
+                    
+                for package in packages:
+                    self.get_logger().info(f"Package contains {package}")
+                
+                self.get_logger().info("")
+                
                 # Send all packages
                 for package in packages:
                     self.udp_socket.sendto(package, (self.udp_target_ip, self.udp_target_port))
