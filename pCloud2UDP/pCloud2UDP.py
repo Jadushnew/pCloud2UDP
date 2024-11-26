@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 package_name = 'pCloud2UDP'
 topic_name = '/unilidar/cloud'
 queue_size = 10
-max_package_size = 60_000 # bytes -> 50kb (max udp package size ~ 65 kb)
+max_package_size = 60_000 # bytes -> 60kb (max udp package size ~ 65 kb)
 DEBUG = False
 
 def load_config():
@@ -53,49 +53,43 @@ class pCloud2UDP(Node):
             msg.row_step
             )
         
-        # data contains not need data like intensity, ring, etc. We only need x,y, and z, so we only need the first 12 bytes
-        cut_data = msg.data[:12]
+        # msg.data contains not needed data like intensity, ring, etc. We only need x,y, and z, so we only need the first 12 bytes of every point
+        # The rest of the information (the other 16 bytes) will be ignored
+        point_offset = 28
+        wanted_bytes = 12
+        cut_data = [];
+        for i in range(0, len(msg.data), point_offset):
+            cut_data.extend(msg.data[i:i+wanted_bytes])
             
         identifier = bytes(bytearray([255,255,255,255]))
         end_identifier = bytes(bytearray([181,181,181,181]))
-        msg_converted = identifier + metadata + cut_data + end_identifier
+        msg_converted = identifier + metadata + bytes(cut_data) + end_identifier
         
         return msg_converted
         
     def pCloud_callback(self, msg):
-        if DEBUG:
-            self.udp_socket.sendto(bytes(bytearray([3])), (self.udp_target_ip, self.udp_target_port))
-            self.get_logger().info('PointCloud2 message sent via UDP.')
-        else:
-            # Default case
-            try:
-                # Serialize PointCloud2
-                serialized_msg = self.msg_as_byte_array(msg)
-                print(f"\nLength of message serialized: {len(serialized_msg)}") # Not sure if that actually works as intended
+        try:
+            self.get_logger().info(f"Received PointCloud2 message.")
+            # Serialize PointCloud2
+            serialized_msg = self.msg_as_byte_array(msg)
+            
+            # Split up the package if necessary
+            num_packages_to_send = math.ceil(len(serialized_msg) / max_package_size)
+            if num_packages_to_send > 1:
+                self.get_logger().info(f"Package larger than set package size. Splitting into {num_packages_to_send} Packages")
                 
-                # Split up the package if necessary
-                num_packages_to_send = math.ceil(len(serialized_msg) / max_package_size)
-                if num_packages_to_send > 1:
-                    self.get_logger().info(f"Package larger than set package size. Splitting into {num_packages_to_send} Packages")
-                    self.get_logger().info(f"Message contains {msg.data}")
-                packages = [serialized_msg[i:i+max_package_size] for i in range(0, len(serialized_msg), max_package_size)]
-                if len(packages) > num_packages_to_send:
-                    packages[-2] += packages[-1]
-                    packages = packages[:-1]
-                    
-                self.get_logger().info("")
-                    
-                for package in packages:
-                    self.get_logger().info(f"Package contains {package}")
-                
-                self.get_logger().info("")
-                
-                # Send all packages
-                for package in packages:
-                    self.udp_socket.sendto(package, (self.udp_target_ip, self.udp_target_port))
-                    self.get_logger().info('PointCloud2 message sent via UDP.')
-            except Exception as e:
-                self.get_logger().error(f"Failed to send PointCloud2 data: {e}")
+            packages = [serialized_msg[i:i+max_package_size] for i in range(0, len(serialized_msg), max_package_size)]
+            if len(packages) > num_packages_to_send:
+                packages[-2] += packages[-1]
+                packages = packages[:-1]
+            
+            # Send all packages
+            for package in packages:
+                self.udp_socket.sendto(package, (self.udp_target_ip, self.udp_target_port))
+                self.get_logger().info(f"Message sent via UDP to {self.udp_target_ip}. Size: {len(package)} bytes")
+        except Exception as e:
+            self.get_logger().error(f"Failed to send PointCloud2 data: {e}")
+        self.get_logger().info("")
     
         
 def main(args=None):
