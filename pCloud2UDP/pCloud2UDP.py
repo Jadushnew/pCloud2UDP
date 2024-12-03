@@ -3,6 +3,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 import socket
 import struct
+import csv
 import json
 import math
 from ament_index_python.packages import get_package_share_directory
@@ -43,6 +44,8 @@ class pCloud2UDP(Node):
             queue_size)
         self.get_logger().info("Subscribed to /unilidar/cloud")
         
+        self.msg_counter = 0
+        
     def msg_as_byte_array(self, msg):
         
         metadata = struct.pack(
@@ -55,7 +58,7 @@ class pCloud2UDP(Node):
         
         # msg.data contains not needed data like intensity, ring, etc. We only need x,y, and z, so we only need the first 12 bytes of every point
         # The rest of the information (the other 16 bytes) will be ignored
-        point_offset = 28
+        point_offset = 24 # Ohne 4-er Loch
         wanted_bytes = 12
         cut_data = [];
         for i in range(0, len(msg.data), point_offset):
@@ -66,10 +69,48 @@ class pCloud2UDP(Node):
         msg_converted = identifier + metadata + bytes(cut_data) + end_identifier
         
         return msg_converted
+    
+    def calculate_message_size(self, msg):
+        header_size = 12 # Standard
+        metadata_size = len(bytes(msg.height)) + len(bytes(msg.width)) + len(bytes(msg.point_step)) + len(bytes(msg.row_step))
+        data_size = len(msg.data)
+        misc_size = 2 # is_dense and is_bigendian
+        
+        return header_size + metadata_size + data_size + misc_size
+        
         
     def pCloud_callback(self, msg):
         try:
-            self.get_logger().info(f"Received PointCloud2 message.")
+            if self.msg_counter < 1:
+                try:
+                    point_offset = 28
+                    wanted_bytes = 4
+                    for i in range(0, 112):
+                       curr_4byte = msg.data[i]
+                       with open('doubledata.csv', mode='a', newline='') as file:
+                           writer = csv.writer(file)
+                           writer.writerow([curr_4byte])
+                        
+                    # for i in range(0, len(msg.data), point_offset):
+                    #     curr_x = msg.data[i:i+wanted_bytes]
+                    #     with open('x_output.csv', mode='a', newline='') as file:
+                    #         writer = csv.writer(file)
+                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
+                    # for i in range(4, len(msg.data), point_offset):
+                    #     curr_x = msg.data[i:i+wanted_bytes]
+                    #     with open('y_output.csv', mode='a', newline='') as file:
+                    #         writer = csv.writer(file)
+                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
+                    # for i in range(8, len(msg.data), point_offset):
+                    #     curr_x = msg.data[i:i+wanted_bytes]
+                    #     with open('z_output.csv', mode='a', newline='') as file:
+                    #         writer = csv.writer(file)
+                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
+                except Exception as e:
+                    self.get_logger().error(f"Writing failed: {e}")
+                
+                self.msg_counter +=1
+            self.get_logger().info(f"Received PointCloud2 message. Size: {self.calculate_message_size(msg)} bytes.")
             # Serialize PointCloud2
             serialized_msg = self.msg_as_byte_array(msg)
             
@@ -86,7 +127,7 @@ class pCloud2UDP(Node):
             # Send all packages
             for package in packages:
                 self.udp_socket.sendto(package, (self.udp_target_ip, self.udp_target_port))
-                self.get_logger().info(f"Message sent via UDP to {self.udp_target_ip}. Size: {len(package)} bytes")
+                self.get_logger().info(f"Message sent via UDP to {self.udp_target_ip}. Size: {len(package)} bytes.")
         except Exception as e:
             self.get_logger().error(f"Failed to send PointCloud2 data: {e}")
         self.get_logger().info("")
