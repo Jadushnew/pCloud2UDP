@@ -81,35 +81,20 @@ class pCloud2UDP(Node):
         
     def pCloud_callback(self, msg):
         try:
-            if self.msg_counter < 1:
+            if self.msg_counter < 50:
                 try:
-                    point_offset = 28
-                    wanted_bytes = 4
-                    for i in range(0, 112):
-                       curr_4byte = msg.data[i]
-                       with open('doubledata.csv', mode='a', newline='') as file:
-                           writer = csv.writer(file)
-                           writer.writerow([curr_4byte])
-                        
-                    # for i in range(0, len(msg.data), point_offset):
-                    #     curr_x = msg.data[i:i+wanted_bytes]
-                    #     with open('x_output.csv', mode='a', newline='') as file:
-                    #         writer = csv.writer(file)
-                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
-                    # for i in range(4, len(msg.data), point_offset):
-                    #     curr_x = msg.data[i:i+wanted_bytes]
-                    #     with open('y_output.csv', mode='a', newline='') as file:
-                    #         writer = csv.writer(file)
-                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
-                    # for i in range(8, len(msg.data), point_offset):
-                    #     curr_x = msg.data[i:i+wanted_bytes]
-                    #     with open('z_output.csv', mode='a', newline='') as file:
-                    #         writer = csv.writer(file)
-                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
+                    name = f"coord{self.msg_counter}.csv"
+                    with open(name, mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        for i in range(0, len(msg.data)-12, 32):
+                            x = msg.data[i:i+4]
+                            y = msg.data[i+4:i+8]
+                            z = msg.data[i+8:i+12]
+                            writer.writerow([struct.unpack('<f', x), struct.unpack('<f', y), struct.unpack('<f', z)])
                 except Exception as e:
                     self.get_logger().error(f"Writing failed: {e}")
-                
-                self.msg_counter +=1
+                finally:
+                    self.msg_counter += 1
             self.get_logger().info(f"Received PointCloud2 message. Size: {self.calculate_message_size(msg)} bytes.")
             # Serialize PointCloud2
             serialized_msg = self.msg_as_byte_array(msg)
