@@ -44,8 +44,6 @@ class pCloud2UDP(Node):
             queue_size)
         self.get_logger().info("Subscribed to /unilidar/cloud")
         
-        self.msg_counter = 0
-        
     def msg_as_byte_array(self, msg):
         
         metadata = struct.pack(
@@ -57,8 +55,8 @@ class pCloud2UDP(Node):
             )
         
         # msg.data contains not needed data like intensity, ring, etc. We only need x,y, and z, so we only need the first 12 bytes of every point
-        # The rest of the information (the other 16 bytes) will be ignored
-        point_offset = 24 # Ohne 4-er Loch
+        # The rest of the information (the other 20 bytes) will be ignored
+        point_offset = 32
         wanted_bytes = 12
         cut_data = [];
         for i in range(0, len(msg.data), point_offset):
@@ -81,35 +79,6 @@ class pCloud2UDP(Node):
         
     def pCloud_callback(self, msg):
         try:
-            if self.msg_counter < 1:
-                try:
-                    point_offset = 28
-                    wanted_bytes = 4
-                    for i in range(0, 112):
-                       curr_4byte = msg.data[i]
-                       with open('doubledata.csv', mode='a', newline='') as file:
-                           writer = csv.writer(file)
-                           writer.writerow([curr_4byte])
-                        
-                    # for i in range(0, len(msg.data), point_offset):
-                    #     curr_x = msg.data[i:i+wanted_bytes]
-                    #     with open('x_output.csv', mode='a', newline='') as file:
-                    #         writer = csv.writer(file)
-                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
-                    # for i in range(4, len(msg.data), point_offset):
-                    #     curr_x = msg.data[i:i+wanted_bytes]
-                    #     with open('y_output.csv', mode='a', newline='') as file:
-                    #         writer = csv.writer(file)
-                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
-                    # for i in range(8, len(msg.data), point_offset):
-                    #     curr_x = msg.data[i:i+wanted_bytes]
-                    #     with open('z_output.csv', mode='a', newline='') as file:
-                    #         writer = csv.writer(file)
-                    #         writer.writerow([struct.unpack('f', bytes(curr_x))[0]])
-                except Exception as e:
-                    self.get_logger().error(f"Writing failed: {e}")
-                
-                self.msg_counter +=1
             self.get_logger().info(f"Received PointCloud2 message. Size: {self.calculate_message_size(msg)} bytes.")
             # Serialize PointCloud2
             serialized_msg = self.msg_as_byte_array(msg)
